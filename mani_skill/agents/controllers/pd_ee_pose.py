@@ -51,7 +51,10 @@ class PDEEPosController(PDJointPosController):
             root_link = sapien_utils.get_obj_by_name(
                 self.articulation.get_links(), self.config.root_link_name
             )
-            assert self.root_link is not None and isinstance(
+            # NOTE: was `self.root_link`, which is only a class annotation and is
+            # not assigned until the line below -- so any controller specifying a
+            # root_link_name died with AttributeError. Affects stock Fetch too.
+            assert root_link is not None and isinstance(
                 root_link, Link
             ), f"Root link {self.config.root_link_name} matches more than one link or was not found"
             self.root_link = root_link
@@ -245,7 +248,11 @@ class PDEEPoseController(PDEEPosController):
         rot_action[rot_norm > 1] = torch.mul(rot_action, 1 / rot_norm[:, None])[
             rot_norm > 1
         ]
-        rot_action = rot_action * self.config.rot_lower
+        # NOTE: was `* self.config.rot_lower`, which for the usual symmetric bounds
+        # (rot_lower=-x, rot_upper=+x) has the right magnitude but *negates* the
+        # rotation: asking for +z spin gave -z. Scale by the upper bound instead,
+        # so a positive action is a positive rotation. Affects stock robots too.
+        rot_action = rot_action * self.config.rot_upper
         return torch.hstack([pos_action, rot_action])
 
     def compute_target_pose(self, prev_ee_pose_at_base: Pose, action):
